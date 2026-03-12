@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍅 MedStudy — Pomodoro Timer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <div class="logo">🍅</div>
+    <h2>MedStudy Pomodoro</h2>
+    <p class="sub">Connect your Notion once. Every session saves automatically.</p>
+
+    <div class="steps">
+      <div class="step"><span class="num">1</span>Go to <a href="https://www.notion.so/my-integrations" target="_blank">notion.so/my-integrations</a> → New integration → copy the token</div>
+      <div class="step"><span class="num">2</span>In Notion, open your Pomodoro Sessions database → ··· → Connections → add your integration</div>
+      <div class="step"><span class="num">3</span>Copy the database ID from its URL (the long string before the ?) and paste below</div>
+    </div>
+
+    <label class="lbl">Notion Integration Token</label>
+    <input id="inp-token" type="password" placeholder="ntn_xxxxxxxxxxxxxxxx" />
+    <div class="hint">From notion.so/my-integrations → Show token</div>
+
+    <label class="lbl">Pomodoro Database ID</label>
+    <input id="inp-db" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+    <div class="hint">From the database URL: notion.so/<strong>THIS-LONG-ID</strong>?v=...</div>
+
+    <button id="connect-btn" onclick="connect()">Connect to Notion →</button>
+    <div id="setup-err"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none">
+  <div class="topbar">
+    <button class="icon-btn" onclick="toggleSound()" id="sound-btn">🔔 Sound</button>
+    <button class="icon-btn" onclick="showSetup()">⚙️ Settings</button>
+  </div>
+
+  <div class="header">
+    <div class="badge">🏥 MedStudy OS</div>
+    <h1>🍅 Pomodoro Timer</h1>
+    <p>Deep focus. Every session logged to Notion.</p>
+  </div>
+
+  <div class="modes">
+    <button class="mode active study" id="mb-study" onclick="setMode('study')">🎯 Study</button>
+    <button class="mode break"        id="mb-break" onclick="setMode('break')">☕ Break</button>
+    <button class="mode long"         id="mb-long"  onclick="setMode('long')">🌿 Long Break</button>
+  </div>
+
+  <div class="ring-wrap">
+    <svg viewBox="0 0 280 280" class="ring-svg">
+      <circle class="ring-bg" cx="140" cy="140" r="130"/>
+      <circle class="ring-fg study" id="ring" cx="140" cy="140" r="130"/>
+    </svg>
+    <div class="ring-inner">
+      <div class="t-label" id="t-label">FOCUS TIME</div>
+      <div class="t-clock" id="t-clock">25:00</div>
+      <div class="dots">
+        <div class="dot" id="d0"></div><div class="dot" id="d1"></div>
+        <div class="dot" id="d2"></div><div class="dot" id="d3"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-s" onclick="resetTimer()">↺</button>
+    <button class="btn-main study" id="play-btn" onclick="togglePlay()">▶</button>
+    <button class="btn-s" onclick="skipNow()">⏭</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="sn" id="s-done">0</span><div class="sl">Completed</div></div>
+    <div class="stat"><span class="sn" id="s-mins">0</span><div class="sl">Minutes</div></div>
+    <div class="stat"><span class="sn" id="s-str">0</span><div class="sl">Best streak</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚙️ Timer Settings</div>
+    <div class="time-grid">
+      <div><label>Study (min)</label><input class="ti" type="number" id="i-study" value="25" min="1" max="90" onchange="onSettingsChange()"></div>
+      <div><label>Break (min)</label><input class="ti" type="number" id="i-break" value="5"  min="1" max="30" onchange="onSettingsChange()"></div>
+      <div><label>Long Break</label><input  class="ti" type="number" id="i-long"  value="15" min="5" max="60" onchange="onSettingsChange()"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📝 Session Details</div>
+    <div class="field"><label>Session Name</label><input type="text" id="f-name"  placeholder="e.g. Cardiology Block 3 — Arrhythmias"></div>
+    <div class="field"><label>Topic Studied</label><input type="text" id="f-topic" placeholder="e.g. Atrial fibrillation management"></div>
+    <div class="field"><label>Notes (optional)</label><textarea id="f-notes" rows="2" placeholder="What you covered, what to review next..."></textarea></div>
+    <button class="save-btn" id="save-btn" onclick="saveSession()">🚀 Save to Notion</button>
+  </div>
+
+  <div id="log-wrap" style="display:none">
+    <div class="log-title">Today's Sessions</div>
+    <div id="log-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
