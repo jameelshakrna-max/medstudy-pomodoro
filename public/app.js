@@ -220,11 +220,13 @@ async function saveSession() {
     const data = await notionFetch('POST', 'pages', {
       parent: { database_id: dbId },
       properties: {
-        'Session Name': { title:[ { type:'text', text:{ content: name } } ] },
-        'Date':         { date:  { start: today } },
-        'Status':       { select: { name: '✅ Completed' } },
-        'Topic Studied':{ rich_text: [ { type:'text', text:{ content: topic } } ] },
-        'Notes':        { rich_text: [ { type:'text', text:{ content: notes } } ] },
+        'Session Label':     { title:  [ { type:'text', text:{ content: name } } ] },
+        'Date':              { date:   { start: today } },
+        'Completed':         { checkbox: true },
+        'Duration (min)':    { number: getMins().study },
+        'Focus Quality':     { select: { name: '🎯 Deep focus' } },
+        'Type':              { select: { name: 'Study' } },
+        'Interruption Note': { rich_text: [ { type:'text', text:{ content: notes } } ] },
       },
     });
 
