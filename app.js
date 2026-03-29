@@ -1,15 +1,19 @@
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let mode='study', isRunning=false, remaining=25*60, total=25*60;
-let ticker=null, done=0, focusMins=0, streak=0, curStreak=0, soundOn=true;
+let ticker=null, startTime=null, startRemaining=0;
+let done=0, focusMins=0, streak=0, curStreak=0, soundOn=true;
 let notionToken='', dbId='', logCount=0;
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 window.onload = () => {
   notionToken = localStorage.getItem('pomo_token') || '';
   dbId        = localStorage.getItem('pomo_db')    || '';
-  if (notionToken && dbId) {
-    showApp();
-  }
+  if (notionToken && dbId) showApp();
+
+  // Use Page Visibility API — when tab becomes visible again, sync immediately
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && isRunning) syncFromClock();
+  });
 };
 
 // ── CONNECTION ────────────────────────────────────────────────────────────────
@@ -23,7 +27,6 @@ async function connect() {
   if (!tok) { err.textContent = 'Please enter your Notion token'; return; }
   if (!db)  { err.textContent = 'Please enter your database ID';  return; }
 
-  // Clean up DB id — handle full URLs
   db = db.replace(/https?:\/\/[^/]+\//, '').replace(/\?.*/, '').replace(/-/g,'');
   if (db.length === 32) {
     db = db.replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
@@ -35,7 +38,6 @@ async function connect() {
   try {
     const data = await notionFetch('GET', `databases/${db}`, null, tok);
     if (data.object === 'error') throw new Error(data.message);
-
     localStorage.setItem('pomo_token', tok);
     localStorage.setItem('pomo_db', db);
     notionToken = tok;
@@ -73,7 +75,7 @@ async function notionFetch(method, path, body, token) {
   return res.json();
 }
 
-// ── TIMER ─────────────────────────────────────────────────────────────────────
+// ── TIMER — CLOCK BASED (not tick based) ─────────────────────────────────────
 function getMins() {
   return {
     study: parseInt(document.getElementById('i-study').value) || 25,
@@ -85,15 +87,14 @@ function getMins() {
 function setMode(m) {
   mode = m;
   clearInterval(ticker);
-  isRunning = false;
+  isRunning  = false;
+  startTime  = null;
 
-  // Update mode buttons
   ['study','break','long'].forEach(k => {
     const btn = document.getElementById('mb-' + k);
     btn.className = 'mode' + (k === m ? ' active ' + k : ' ' + k);
   });
 
-  // Update ring + clock color
   const ring  = document.getElementById('ring');
   const clock = document.getElementById('t-clock');
   const label = document.getElementById('t-label');
@@ -119,30 +120,59 @@ function onSettingsChange() {
   if (!isRunning) setMode(mode);
 }
 
-function togglePlay() {
-  if (isRunning) {
-    clearInterval(ticker);
-    isRunning = false;
-  } else {
-    isRunning = true;
-    ticker = setInterval(tick, 1000);
-  }
-  updatePlayBtn();
-  const ring = document.getElementById('ring');
-  if (isRunning) ring.classList.add('on'); else ring.classList.remove('on');
-}
-
-function tick() {
-  remaining--;
+// ── CLOCK SYNC — THE KEY FIX ─────────────────────────────────────────────────
+function syncFromClock() {
+  if (!isRunning || !startTime) return;
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  remaining = Math.max(0, startRemaining - elapsed);
   renderClock();
   renderRing();
   if (remaining <= 0) {
     clearInterval(ticker);
     isRunning = false;
+    startTime = null;
     document.getElementById('ring').classList.remove('on');
     updatePlayBtn();
     onDone();
   }
+}
+
+function togglePlay() {
+  if (isRunning) {
+    // Pause — save how much time is left
+    clearInterval(ticker);
+    isRunning = false;
+    startTime = null;
+    document.getElementById('ring').classList.remove('on');
+  } else {
+    // Start — record wall clock time
+    isRunning      = true;
+    startTime      = Date.now();
+    startRemaining = remaining;
+    // Tick every 500ms — even if throttled, syncFromClock uses real clock
+    ticker = setInterval(syncFromClock, 500);
+    document.getElementById('ring').classList.add('on');
+  }
+  updatePlayBtn();
+}
+
+function resetTimer() {
+  clearInterval(ticker);
+  isRunning = false;
+  startTime = null;
+  document.getElementById('ring').classList.remove('on');
+  setMode(mode);
+}
+
+function skipNow() {
+  clearInterval(ticker);
+  isRunning = false;
+  startTime = null;
+  remaining = 0;
+  document.getElementById('ring').classList.remove('on');
+  renderClock();
+  renderRing();
+  onDone();
 }
 
 function onDone() {
@@ -162,9 +192,6 @@ function onDone() {
     setMode('study');
   }
 }
-
-function resetTimer()  { clearInterval(ticker); isRunning = false; document.getElementById('ring').classList.remove('on'); setMode(mode); }
-function skipNow()     { clearInterval(ticker); isRunning = false; document.getElementById('ring').classList.remove('on'); remaining = 0; renderClock(); renderRing(); onDone(); }
 
 function updatePlayBtn() {
   document.getElementById('play-btn').textContent = isRunning ? '⏸' : '▶';
@@ -227,7 +254,6 @@ async function saveSession() {
         'Focus Quality':     { select: { name: '🎯 Deep focus' } },
         'Type':              { select: { name: 'Study' } },
         'Interruption Note': { rich_text: [ { type:'text', text:{ content: notes } } ] },
-        'Date':              { date: { start: today } },
       },
     });
 
